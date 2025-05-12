@@ -6,7 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/beesy23/internal/pubsub"
+	pubsub "github.com/beesy23/internal/pubsub"
+	routing "github.com/beesy23/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -25,7 +26,7 @@ func main() {
 	if err != nil {
 		fmt.Println("Creating connection channel failed")
 	}
-	err = pubsub.PublishJSON(ch, ExchangePerilDirect, PauseKey, "message")
+	err = pubsub.PublishJSON(ch, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState)
 	if err != nil {
 		fmt.Println("Error publishing JSON")
 	}
