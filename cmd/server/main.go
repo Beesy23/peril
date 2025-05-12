@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
-	pubsub "github.com/Beesy23/peril/internal/pubsub"
-	routing "github.com/Beesy23/peril/internal/routing"
+	"github.com/Beesy23/peril/internal/pubsub"
+	"github.com/Beesy23/peril/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -18,15 +19,16 @@ func main() {
 
 	connection, err := amqp.Dial(connectStr)
 	if err != nil {
-		fmt.Println("Connection Unsuccessful:", err)
-		os.Exit(1)
+		log.Fatalf("could not connect to RabbitMQ: %v", err)
 	}
 	defer connection.Close()
-	fmt.Println("Connection Successful")
+	fmt.Println("Peril game server connected to RabbitMQ!")
+
 	ch, err := connection.Channel()
 	if err != nil {
-		fmt.Println("Creating connection channel failed")
+		log.Fatalf("could not create channel: %v", err)
 	}
+
 	err = pubsub.PublishJSON(ch, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{IsPaused: true})
 	if err != nil {
 		fmt.Println("Error publishing JSON")
