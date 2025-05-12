@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	pubsub "github.com/beesy23/internal/pubsub"
-	routing "github.com/beesy23/internal/routing"
+	pubsub "github.com/beesy23/peril/internal/pubsub"
+	routing "github.com/beesy23/peril/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
