@@ -1,4 +1,4 @@
-module github.com/bootdotdev/learn-pub-sub-starter
+module github.com/Beesy23/peril
 
 go 1.22.1
 

@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	pubsub "github.com/beesy23/peril/internal/pubsub"
-	routing "github.com/beesy23/peril/internal/routing"
+	pubsub "github.com/Beesy23/peril/internal/pubsub"
+	routing "github.com/Beesy23/peril/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -18,7 +18,8 @@ func main() {
 
 	connection, err := amqp.Dial(connectStr)
 	if err != nil {
-		fmt.Println("Connection Unsuccessful")
+		fmt.Println("Connection Unsuccessful:", err)
+		os.Exit(1)
 	}
 	defer connection.Close()
 	fmt.Println("Connection Successful")
@@ -26,7 +27,7 @@ func main() {
 	if err != nil {
 		fmt.Println("Creating connection channel failed")
 	}
-	err = pubsub.PublishJSON(ch, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState)
+	err = pubsub.PublishJSON(ch, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{IsPaused: true})
 	if err != nil {
 		fmt.Println("Error publishing JSON")
 	}
