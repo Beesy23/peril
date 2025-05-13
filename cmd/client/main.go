@@ -40,6 +40,19 @@ func main() {
 
 	gs := gamelogic.NewGameState(username)
 
+	err = pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilDirect,
+		routing.PauseKey+"."+username,
+		routing.PauseKey,
+		pubsub.SimpleQueueTransient,
+		handlerPause(gs),
+	)
+
+	if err != nil {
+		log.Fatalf("could not subscribe to pause: %v", err)
+	}
+
 	for {
 		words := gamelogic.GetInput()
 		if len(words) == 0 {
