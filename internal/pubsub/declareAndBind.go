@@ -6,9 +6,9 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type Acktype int
+type Acktype int // an enum to represent "Ack", "NackDiscard" or "NackRequeue"
 
-type SimpleQueueType int
+type SimpleQueueType int // an enum to represent "durable" or "transient"
 
 const (
 	SimpleQueueDurable SimpleQueueType = iota
@@ -33,13 +33,17 @@ func DeclareAndBind(
 		return nil, amqp.Queue{}, fmt.Errorf("could not create channel: %v", err)
 	}
 
+	args := amqp.Table{
+		"x-dead-letter-exchange": "peril_dlx",
+	}
+
 	queue, err := ch.QueueDeclare(
 		queueName,
 		simpleQueueType == SimpleQueueDurable,
 		simpleQueueType != SimpleQueueDurable,
 		simpleQueueType != SimpleQueueDurable,
 		false,
-		nil,
+		args,
 	)
 	if err != nil {
 		return nil, amqp.Queue{}, fmt.Errorf("could not create channel: %v", err)
