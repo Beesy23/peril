@@ -12,8 +12,8 @@ func SubscribeJSON[T any](
 	exchange,
 	queueName,
 	key string,
-	simpleQueueType simpleQueueType,
-	handler func(T),
+	simpleQueueType SimpleQueueType,
+	handler func(T) Acktype,
 ) error {
 	ch, _, err := DeclareAndBind(
 		conn,
@@ -47,8 +47,18 @@ func SubscribeJSON[T any](
 				fmt.Printf("could not unmarshal JSON: %v\n", err)
 				continue
 			}
-			handler(data)
-			body.Ack(false)
+			acktype := handler(data)
+			switch acktype {
+			case Ack:
+				body.Ack(false)
+				fmt.Println("Ack")
+			case NackRequeue:
+				body.Nack(false, true)
+				fmt.Println("NackRequeue")
+			case NackDiscard:
+				body.Nack(false, false)
+				fmt.Println("NackDiscard")
+			}
 		}
 	}()
 

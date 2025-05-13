@@ -26,17 +26,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not get username: %v", err)
 	}
-	_, queue, err := pubsub.DeclareAndBind(
-		conn,
-		routing.ExchangePerilDirect,
-		routing.PauseKey+"."+username,
-		routing.PauseKey,
-		pubsub.SimpleQueueTransient,
-	)
+
+	publishCh, err := conn.Channel()
 	if err != nil {
-		log.Fatalf("could not subscribe to pause: %v", err)
+		log.Fatalf("could not create channel: %v", err)
 	}
-	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
 
 	gs := gamelogic.NewGameState(username)
 
@@ -53,6 +47,19 @@ func main() {
 		log.Fatalf("could not subscribe to pause: %v", err)
 	}
 
+	err = pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilTopic,
+		routing.ArmyMovesPrefix+"."+gs.GetUsername(),
+		routing.ArmyMovesPrefix+".*",
+		pubsub.SimpleQueueTransient,
+		handlerMove(gs),
+	)
+
+	if err != nil {
+		log.Fatalf("could not subscribe to army moves: %v", err)
+	}
+
 	for {
 		words := gamelogic.GetInput()
 		if len(words) == 0 {
@@ -66,11 +73,26 @@ func main() {
 				continue
 			}
 		case "move":
-			_, err := gs.CommandMove(words)
+			mv, err := gs.CommandMove(words)
 			if err != nil {
 				fmt.Println(err)
 				continue
 			}
+
+			err = pubsub.PublishJSON(
+				publishCh,
+				routing.ExchangePerilTopic,
+				routing.ArmyMovesPrefix+"."+mv.Player.Username,
+				mv,
+			)
+
+			if err != nil {
+				fmt.Printf("error: %s\n", err)
+				continue
+			}
+
+			fmt.Printf("Moved %v to %s\n", len(mv.Units), mv.ToLocation)
+
 		case "status":
 			gs.CommandStatus()
 		case "help":
