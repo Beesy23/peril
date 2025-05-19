@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/gob"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/Beesy23/peril/internal/gamelogic"
 	"github.com/Beesy23/peril/internal/pubsub"
@@ -13,6 +15,8 @@ import (
 var connectStr = "amqp://guest:guest@localhost:5672/"
 
 func main() {
+	gob.Register(routing.GameLog{})
+
 	fmt.Println("Starting Peril client...")
 
 	conn, err := amqp.Dial(connectStr)
@@ -36,19 +40,6 @@ func main() {
 
 	err = pubsub.SubscribeJSON(
 		conn,
-		routing.ExchangePerilDirect,
-		routing.PauseKey+"."+username,
-		routing.PauseKey,
-		pubsub.SimpleQueueTransient,
-		handlerPause(gs),
-	)
-
-	if err != nil {
-		log.Fatalf("could not subscribe to pause: %v", err)
-	}
-
-	err = pubsub.SubscribeJSON(
-		conn,
 		routing.ExchangePerilTopic,
 		routing.ArmyMovesPrefix+"."+gs.GetUsername(),
 		routing.ArmyMovesPrefix+".*",
@@ -66,11 +57,24 @@ func main() {
 		routing.WarRecognitionsPrefix,
 		routing.WarRecognitionsPrefix+".*",
 		pubsub.SimpleQueueDurable,
-		handlerWar(gs),
+		handlerWar(gs, publishCh),
 	)
 
 	if err != nil {
 		log.Fatalf("could not subscribe to war declarations: %v", err)
+	}
+
+	err = pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilDirect,
+		routing.PauseKey+"."+gs.GetUsername(),
+		routing.PauseKey,
+		pubsub.SimpleQueueTransient,
+		handlerPause(gs),
+	)
+
+	if err != nil {
+		log.Fatalf("could not subscribe to pause: %v", err)
 	}
 
 	for {
@@ -79,12 +83,6 @@ func main() {
 			continue
 		}
 		switch words[0] {
-		case "spawn":
-			err := gs.CommandSpawn(words)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
 		case "move":
 			mv, err := gs.CommandMove(words)
 			if err != nil {
@@ -103,9 +101,13 @@ func main() {
 				fmt.Printf("error: %s\n", err)
 				continue
 			}
-
 			fmt.Printf("Moved %v to %s\n", len(mv.Units), mv.ToLocation)
-
+		case "spawn":
+			err := gs.CommandSpawn(words)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
 		case "status":
 			gs.CommandStatus()
 		case "help":
@@ -119,4 +121,17 @@ func main() {
 			fmt.Printf("unknown command: %v\n", words[0])
 		}
 	}
+}
+
+func publishGameLog(publishCh *amqp.Channel, username, msg string) error {
+	return pubsub.PublishGob(
+		publishCh,
+		routing.ExchangePerilTopic,
+		routing.GameLogSlug+"."+username,
+		routing.GameLog{
+			Username:    username,
+			CurrentTime: time.Now(),
+			Message:     msg,
+		},
+	)
 }

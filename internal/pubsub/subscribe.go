@@ -15,7 +15,7 @@ func SubscribeJSON[T any](
 	simpleQueueType SimpleQueueType,
 	handler func(T) Acktype,
 ) error {
-	ch, _, err := DeclareAndBind(
+	ch, queue, err := DeclareAndBind(
 		conn,
 		exchange,
 		queueName,
@@ -26,25 +26,31 @@ func SubscribeJSON[T any](
 		return fmt.Errorf("could not subscribe to %s: %v", queueName, err)
 	}
 
-	deliv_ch, err := ch.Consume(
-		queueName,
-		"",
-		false,
-		false,
-		false,
-		false,
-		nil,
+	msgs, err := ch.Consume(
+		queue.Name, // queue
+		"",         // consumer
+		false,      // auto-ack
+		false,      // exclusive
+		false,      // no-local
+		false,      // no-wait
+		nil,        // args
 	)
 	if err != nil {
 		return fmt.Errorf("could not create channel: %v", err)
 	}
 
+	unmarshaller := func(data []byte) (T, error) {
+		var target T
+		err := json.Unmarshal(data, &target)
+		return target, err
+	}
+
 	go func() {
-		for body := range deliv_ch {
-			var data T
-			err := json.Unmarshal(body.Body, &data)
+		defer ch.Close()
+		for body := range msgs {
+			data, err := unmarshaller(body.Body)
 			if err != nil {
-				fmt.Printf("could not unmarshal JSON: %v\n", err)
+				fmt.Printf("could not unmarshal message: %v\n", err)
 				continue
 			}
 			acktype := handler(data)
