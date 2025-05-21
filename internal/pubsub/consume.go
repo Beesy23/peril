@@ -33,6 +33,8 @@ func DeclareAndBind(
 		return nil, amqp.Queue{}, fmt.Errorf("could not create channel: %v", err)
 	}
 
+	ch.Qos(10, 0, true)
+
 	args := amqp.Table{
 		"x-dead-letter-exchange": "peril_dlx",
 	}

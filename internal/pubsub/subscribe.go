@@ -1,6 +1,8 @@
 package pubsub
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 
@@ -14,6 +16,64 @@ func SubscribeJSON[T any](
 	key string,
 	simpleQueueType SimpleQueueType,
 	handler func(T) Acktype,
+) error {
+
+	unmarshaller := func(data []byte) (T, error) {
+		var target T
+
+		err := json.Unmarshal(data, &target)
+		return target, err
+	}
+
+	return Subscribe(
+		conn,
+		exchange,
+		queueName,
+		key,
+		simpleQueueType,
+		handler,
+		unmarshaller,
+	)
+}
+
+func SubscribeGob[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	simpleQueueType SimpleQueueType,
+	handler func(T) Acktype,
+) error {
+
+	unmarshaller := func(data []byte) (T, error) {
+		var target T
+		buf := bytes.NewReader(data)
+
+		dec := gob.NewDecoder(buf)
+		err := dec.Decode(&target)
+
+		return target, err
+	}
+
+	return Subscribe(
+		conn,
+		exchange,
+		queueName,
+		key,
+		simpleQueueType,
+		handler,
+		unmarshaller,
+	)
+}
+
+func Subscribe[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	simpleQueueType SimpleQueueType,
+	handler func(T) Acktype,
+	unmarshaller func([]byte) (T, error),
 ) error {
 	ch, queue, err := DeclareAndBind(
 		conn,
@@ -37,12 +97,6 @@ func SubscribeJSON[T any](
 	)
 	if err != nil {
 		return fmt.Errorf("could not create channel: %v", err)
-	}
-
-	unmarshaller := func(data []byte) (T, error) {
-		var target T
-		err := json.Unmarshal(data, &target)
-		return target, err
 	}
 
 	go func() {
